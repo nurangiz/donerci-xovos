@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Donerci Xovos - Tezkor Yetkazib Berish</title>
+  <meta name="description" content="Donerci Xovos — Sirdaryo viloyati, Xovos tumanida eng mazali lavash, burger, donar, pitsa va setlarni tezkor yetkazib berish xizmati. Onlayn buyurtma bering!">
+  <meta name="keywords" content="Donerci Xovos, Donerci, Doner Xovos, Lavash Xovos, Fast food Xovos, Xovos yetkazib berish, burger Xovos, pitsa Xovos, fast food">
+  <meta name="author" content="Donerci Xovos">
+  <meta name="robots" content="index, follow">
+  
+  <meta property="og:title" content="Donerci Xovos - Tezkor Yetkazib Berish">
+  <meta property="og:description" content="Xovos tumanida tezkor fast-fud yetkazib berish. Mazali lavash, burger, pitsa va setlar!">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="uz_UZ">
+
+  <!-- Google Shrift (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN va Sozlamalari -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+             sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: '#059669',
+            brandDark: '#047857',
+            brandYellow: '#f59e0b',
+            brandYellowLight: '#fffbeb',
+            brandYellowDark: '#d97706',
+            surface: '#f9fafb',
+            surfaceBorder: '#e5e7eb'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Kutubxonalar: Leaflet CSS, Lucide Icons, React 18, Leaflet JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Maxsus uslublar -->
+  <style>
+/* Donerci Xovos - Asosiy Uslublar */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+/* Skrollbarni yashirish */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Animatsiyalar */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+/* Chop etish (Chek chiqarish) uslublari */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .receipt-print, .receipt-print * {
+    visibility: visible !important;
+  }
+  .receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 300px;
+    padding: 10px;
+    font-family: monospace;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <!-- React Ildiz Konteyneri -->
+  <div id="root"></div>
+
+  <!-- Sozlamalar va Ma'lumotlar -->
+  <script>
+// Donerci Xovos - Konfiguratsiya sozlamalari
+const CONFIG = {
+  // Telegram Bot sozlamalari
+  TELEGRAM_TOKEN: '8700858307:AAGTSNIrRglOVsdLR_HWPD1VoH9quSdHHDY',
+  TELEGRAM_CHAT_ID: '7290313985',
+
+  // Filial joylashuvi (Xovos)
+  SHOP_LOCATION: {
+    lat: 40.222361,
+    lng: 68.840528,
+    name: 'Donerci Xovos',
+    address: 'Sirdaryo viloyati, Xovos tumani',
+    phone: '+998 71 200 00 00'
+  },
+
+  // Yetkazib berish chegarasi (metrda) - 15 km
+  MAX_DELIVERY_RADIUS_METERS: 15000,
+
+  // Qadoqlash xizmati to'lovi (so'm)
+  PACKAGE_FEE: 1000,
+
+  // Har 1 km masofa uchun yetkazib berish to'lovi (4,000 so'm / km)
+  DELIVERY_FEE_PER_KM: 4000,
+  MIN_DELIVERY_FEE: 4000
+};
+
+window.CONFIG = CONFIG;
+
+
+// Donerci Xovos - Rasmiy Menyu Mahsulotlari va Ko'p Tilli Lug'at
+// Rasm menyudagi barcha mahsulotlar va aniq narxlar asosida tuzilgan
+
+const menuData = {
+  categories: [
+    {
+      id: 'setlar',
+      name: { uz: 'SETLAR', ru: 'СЕТЫ', en: 'SETS', zh: '套餐' },
+      icon: 'sparkles',
+      items: [
+        {
+          id: 'set_duo',
+          name: { uz: 'DUO Set', ru: 'ДУО Сет', en: 'DUO Set', zh: '二人套餐' },
+          desc: { uz: '2x Lavash, 2x Strips, 1L Coca-Cola, 2x Sous', ru: '2x Лаваш, 2x Стрипсы, 1Л Кола, 2x Соус', en: '2x Lavash, 2x Strips, 1L Cola, 2x Sauce', zh: '2个拉瓦什，2块鸡柳，1升可乐，2个酱料' },
+          price: 90000,
+          img: 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'set_dostlar',
+          name: { uz: "Do'stlar Set", ru: 'Сет Друзья', en: 'Friends Set', zh: '朋友套餐' },
+          desc: { uz: '4x Lavash, 2x Fri, 2L Coca-Cola, 2x Sous', ru: '4x Лаваш, 2x Фри, 2Л Кола, 2x Соус', en: '4x Lavash, 2x Fries, 2L Cola, 2x Sauce', zh: '4个拉瓦什，2份薯条，2升可乐，2个酱料' },
+          price: 155000,
+          img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'set_hotdog',
+          name: { uz: 'Hot-dog Set', ru: 'Хот-дог Сет', en: 'Hot-dog Set', zh: '热狗套餐' },
+          desc: { uz: '2x Hot-dog, 1x Fri, 1L Coca-Cola', ru: '2x Хот-дог, 1x Фри, 1Л Кола', en: '2x Hot-dogs, 1x Fries, 1L Cola', zh: '2个热狗，1份薯条，1升可乐' },
+          price: 55000,
+          img: 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'set_gap_yoq',
+          name: { uz: "Gap Yo'q Set", ru: 'Сет Гап Йук', en: 'Gap Yoq Set', zh: '完美热狗套餐' },
+          desc: { uz: '4x Hot-dog, 2x Fri, 2L Coca-Cola', ru: '4x Хот-дог, 2x Фри, 2Л Кола', en: '4x Hot-dogs, 2x Fries, 2L Cola', zh: '4个热狗，2份薯条，2升可乐' },
+          price: 105000,
+          img: 'https://images.unsplash.com/photo-1627054234594-5d54b42bf732?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'set_chiken',
+          name: { uz: 'Chiken Burger Set', ru: 'Чикен Бургер Сет', en: 'Chicken Burger Set', zh: '鸡肉汉堡套餐' },
+          desc: { uz: '2x Chiken Burger, 1x Fri, 1L Coca-Cola, 2x Sous', ru: '2x Чикен Бургер, 1x Фри, 1Л Кола, 2x Соус', en: '2x Chicken Burgers, 1x Fries, 1L Cola, 2x Sauce', zh: '2个鸡肉汉堡，1份薯条，1升可乐，2个酱料' },
+          price: 75000,
+          img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'set_haggi',
+          name: { uz: 'Haggi Set', ru: 'Хагги Сет', en: 'Haggi Set', zh: '哈吉套餐' },
+          desc: { uz: '2x Haggi, 2x Strips, 1L Coca-Cola, 1x Sous', ru: '2x Хагги, 2x Стрипсы, 1Л Кола, 1x Соус', en: '2x Haggi, 2x Strips, 1L Cola, 1x Sauce', zh: '2个哈吉，2块鸡柳，1升可乐，1个酱料' },
+          price: 85000,
+          img: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'set_piramida',
+          name: { uz: 'Piramida Set', ru: 'Сет Пирамида', en: 'Pyramid Set', zh: '金字塔三明治套餐' },
+          desc: { uz: '1x Klab Sendvich, 2x Strips, 1L Coca-Cola', ru: '1x Клаб Сэндвич, 2x Стрипсы, 1Л Кола', en: '1x Club Sandwich, 2x Strips, 1L Cola', zh: '1个三明治，2块鸡柳，1升可乐' },
+          price: 60000,
+          img: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'combo',
+      name: { uz: 'KOMBOLAR', ru: 'КОМБО', en: 'COMBO', zh: '单人套餐' },
+      icon: 'tag',
+      items: [
+        {
+          id: 'combo_super',
+          name: { uz: 'Super Combo', ru: 'Супер Комбо', en: 'Super Combo', zh: '超级大拉瓦什套餐' },
+          desc: { uz: '1x Katta Lavash, 1x Fri, 0.5L Coca-Cola, 1x Sous', ru: '1x Большой Лаваш, 1x Фри, 0.5Л Кола, 1x Соус', en: '1x Big Lavash, 1x Fries, 0.5L Cola, 1x Sauce', zh: '1个大拉瓦什，1份薯条，0.5升可乐，1个酱料' },
+          price: 50000,
+          img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'combo_super_mini',
+          name: { uz: 'Super Mini Combo', ru: 'Супер Мини Комбо', en: 'Super Mini Combo', zh: '超级迷你拉瓦什套餐' },
+          desc: { uz: '1x Mini Lavash, 1x Fri, 0.5L Coca-Cola, 1x Sous', ru: '1x Мини Лаваш, 1x Фри, 0.5Л Кола, 1x Соус', en: '1x Mini Lavash, 1x Fries, 0.5L Cola, 1x Sauce', zh: '1个小拉瓦什，1份薯条，0.5升可乐，1个酱料' },
+          price: 45000,
+          img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'combo_donerchi',
+          name: { uz: 'Donerchi Combo', ru: 'Донерчи Комбо', en: 'Donerchi Combo', zh: '多纳烤肉套餐' },
+          desc: { uz: '1x Donar, 2x Strips, 0.5L Coca-Cola, 1x Sous', ru: '1x Донер, 2x Стрипсы, 0.5Л Кола, 1x Соус', en: '1x Doner, 2x Strips, 0.5L Cola, 1x Sauce', zh: '1个多纳，2块鸡柳，0.5升可乐，1个酱料' },
+          price: 45000,
+          img: 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'combo_mazza',
+          name: { uz: 'Mazza Combo', ru: 'Мазза Комбо', en: 'Mazza Combo', zh: '美味沙威玛套餐' },
+          desc: { uz: '1x Shaurma, 0.5L Coca-Cola', ru: '1x Шаурма, 0.5Л Кола', en: '1x Shawarma, 0.5L Cola', zh: '1个沙威玛，0.5升可乐' },
+          price: 38000,
+          img: 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'combo_haggi',
+          name: { uz: 'Haggi Combo', ru: 'Хагги Комбо', en: 'Haggi Combo', zh: '哈吉汉堡套餐' },
+          desc: { uz: '1x Haggi, 2x Strips, 0.5L Coca-Cola, 1x Sous', ru: '1x Хагги, 2x Стрипсы, 0.5Л Кола, 1x Соус', en: '1x Haggi, 2x Strips, 0.5L Cola, 1x Sauce', zh: '1个哈吉，2块鸡柳，0.5升可乐，1个酱料' },
+          price: 45000,
+          img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'lavash',
+      name: { uz: 'LAVASHLAR', ru: 'ЛАВАШ', en: 'LAVASH', zh: '拉瓦什卷' },
+      icon: 'scroll',
+      items: [
+        {
+          id: 'lavash_standart',
+          name: { uz: 'Lavash (standart)', ru: 'Лаваш (стандарт)', en: 'Lavash (standard)', zh: '标准拉瓦什' },
+          price: 25000,
+          img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'lavash_katta',
+          name: { uz: 'Lavash (katta)', ru: 'Лаваш (большой)', en: 'Lavash (large)', zh: '大号拉瓦什' },
+          price: 29000,
+          img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'lavash_sirli_standart',
+          name: { uz: 'Lavash sirli (standart)', ru: 'Лаваш сырный (стандарт)', en: 'Cheese Lavash (standard)', zh: '标准芝士拉瓦什' },
+          price: 28000,
+          img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'lavash_sirli_katta',
+          name: { uz: 'Lavash sirli (katta)', ru: 'Лаваш сырный (большой)', en: 'Cheese Lavash (large)', zh: '大号芝士拉瓦什' },
+          price: 32000,
+          img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'tandir_lavash',
+          name: { uz: 'Tandir Lavash', ru: 'Тандыр Лаваш', en: 'Tandoor Lavash', zh: '烤炉拉瓦什' },
+          price: 35000,
+          img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'tandir_lavash_sirli',
+          name: { uz: 'Tandir Lavash sirli', ru: 'Тандыр Лаваш сырный', en: 'Cheese Tandoor Lavash', zh: '烤炉芝士拉瓦什' },
+          price: 38000,
+          img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'donar_kabob',
+      name: { uz: 'DONAR VA KABOB', ru: 'ДОНЕР И БЛЮДА', en: 'DONER & KEBAB', zh: '土耳其烤肉和拼盘' },
+      icon: 'utensils',
+      items: [
+        {
+          id: 'donar_oddiy',
+          name: { uz: 'Donar', ru: 'Донер', en: 'Doner Kebab', zh: '多纳烤肉' },
+          price: 30000,
+          img: 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'donar_sirli',
+          name: { uz: 'Donar sirli', ru: 'Донер сырный', en: 'Cheese Doner', zh: '芝士多纳烤肉' },
+          price: 32000,
+          img: 'https://images.unsplash.com/photo-1561651823-34feb02250e4?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'donar_blyuda_standart',
+          name: { uz: 'Donar blyuda (standart)', ru: 'Донер блюдо (стандарт)', en: 'Doner Platter (standard)', zh: '标准多纳烤肉拼盘' },
+          price: 40000,
+          img: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'donar_blyuda_katta',
+          name: { uz: 'Donar blyuda (katta)', ru: 'Донер блюдо (большой)', en: 'Doner Platter (large)', zh: '大号多纳烤肉拼盘' },
+          price: 45000,
+          img: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'iskandar_kabob_40',
+          name: { uz: 'Iskandar kabob', ru: 'Искандер кабоб', en: 'Iskender Kebab', zh: '伊斯坎德尔烤肉' },
+          price: 40000,
+          img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'iskandar_kabob_50',
+          name: { uz: 'Iskandar kabob (maxsus fri bilan)', ru: 'Искандер кабоб (с фри)', en: 'Special Iskender Kebab (with fries)', zh: '特制伊斯坎德尔烤肉（配薯条）' },
+          price: 50000,
+          img: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'burgerlar',
+      name: { uz: 'BURGERLAR VA SENDVICH', ru: 'БУРГЕРЫ И СЭНДВИЧИ', en: 'BURGERS & SANDWICH', zh: '汉堡与三明治' },
+      icon: 'circle-dot',
+      items: [
+        {
+          id: 'gamburger',
+          name: { uz: 'Gamburger', ru: 'Гамбургер', en: 'Hamburger', zh: '汉堡包' },
+          price: 27000,
+          img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'cheese_burger',
+          name: { uz: 'Cheese Burger', ru: 'Чизбургер', en: 'Cheese Burger', zh: '芝士汉堡' },
+          price: 30000,
+          img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'double_burger',
+          name: { uz: 'Double Burger', ru: 'Дабл Бургер', en: 'Double Burger', zh: '双层汉堡' },
+          price: 37000,
+          img: 'https://images.unsplash.com/photo-1586816001966-79b736744398?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'double_cheese',
+          name: { uz: 'Double Cheese Burger', ru: 'Дабл Чизбургер', en: 'Double Cheese Burger', zh: '双层芝士汉堡' },
+          price: 39000,
+          img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'chiken_cheese_standart',
+          name: { uz: 'Chiken Cheese (standart)', ru: 'Чикен Чиз (стандарт)', en: 'Chicken Cheese (standard)', zh: '标准鸡肉芝士堡' },
+          price: 27000,
+          img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'chiken_cheese_katta',
+          name: { uz: 'Chiken Cheese (katta)', ru: 'Чикен Чиз (большой)', en: 'Chicken Cheese (large)', zh: '大号鸡肉芝士堡' },
+          price: 29000,
+          img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'club_tovuq',
+          name: { uz: 'Club sandwich tovuq', ru: 'Клаб сэндвич с курицей', en: 'Chicken Club Sandwich', zh: '鸡肉俱乐部三明治' },
+          price: 40000,
+          img: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'club_indeyka',
+          name: { uz: 'Club sandwich indeyka', ru: 'Клаб сэндвич с индейкой', en: 'Turkey Club Sandwich', zh: '火鸡俱乐部三明治' },
+          price: 35000,
+          img: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'club_kolbasa',
+          name: { uz: 'Club sandwich kolbasa', ru: 'Клаб сэндвич с колбасой', en: 'Sausage Club Sandwich', zh: '香肠俱乐部三明治' },
+          price: 30000,
+          img: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'haggi',
+      name: { uz: 'HAGGI', ru: 'ХАГГИ', en: 'HAGGI', zh: '哈吉' },
+      icon: 'sandwich',
+      items: [
+        {
+          id: 'goshtli_haggi',
+          name: { uz: "Go'shtli Haggi", ru: 'Мясной Хагги', en: 'Meat Haggi', zh: '牛肉哈吉' },
+          price: 30000,
+          img: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'goshtli_haggi_sirli',
+          name: { uz: "Go'shtli Haggi sirli", ru: 'Мясной Хагги сырный', en: 'Cheese Meat Haggi', zh: '芝士牛肉哈吉' },
+          price: 33000,
+          img: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'hotdoglar',
+      name: { uz: 'HOT-DOGLAR', ru: 'ХОТ-ДОГИ', en: 'HOT DOGS', zh: '热狗' },
+      icon: 'flame',
+      items: [
+        {
+          id: 'hotdog_oddiy',
+          name: { uz: 'Hot-dog', ru: 'Хот-дог', en: 'Hot-dog', zh: '经典热狗' },
+          price: 15000,
+          img: 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'hotdog_korolevskiy',
+          name: { uz: 'Hot-dog Korolevskiy', ru: 'Хот-дог Королевский', en: 'Royal Hot-dog', zh: '皇家热狗' },
+          price: 18000,
+          img: 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'hotdog_salatli_18',
+          name: { uz: 'Hot-dog salatli', ru: 'Хот-дог с салатом', en: 'Salad Hot-dog', zh: '沙拉热狗' },
+          price: 18000,
+          img: 'https://images.unsplash.com/photo-1627054234594-5d54b42bf732?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'hotdog_salatli_20',
+          name: { uz: 'Hot-dog salatli (katta)', ru: 'Хот-дог с салатом (большой)', en: 'Salad Hot-dog (large)', zh: '大号沙拉热狗' },
+          price: 20000,
+          img: 'https://images.unsplash.com/photo-1627054234594-5d54b42bf732?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'hotdog_qazili',
+          name: { uz: 'Hot-dog qazili', ru: 'Хот-дог с казы', en: 'Kazy Hot-dog', zh: '马肉香肠热狗' },
+          price: 28000,
+          img: 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'hotdog_nonga',
+          name: { uz: 'Hot-dog nonga', ru: 'Хот-дог в лепёшке', en: 'Hot-dog in Flatbread', zh: '烤饼热狗' },
+          price: 18000,
+          img: 'https://images.unsplash.com/photo-1619740455993-9e612b1af08a?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'pitsalar',
+      name: { uz: 'PITSALAR', ru: 'ПИЦЦА', en: 'PIZZA', zh: '披萨' },
+      icon: 'pie-chart',
+      items: [
+        {
+          id: 'pizza_margarita',
+          name: { uz: 'Margarita Pizza', ru: 'Пицца Маргарита', en: 'Margarita Pizza', zh: '玛格丽特披萨' },
+          price: 60000,
+          img: 'https://images.unsplash.com/photo-1604382355076-af4b0eb60143?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'pizza_tovuqli',
+          name: { uz: 'Tovuqli Pizza', ru: 'Пицца Куриная', en: 'Chicken Pizza', zh: '鸡肉披萨' },
+          price: 70000,
+          img: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'pizza_peperoni',
+          name: { uz: 'Peperoni Pizza', ru: 'Пицца Пеперони', en: 'Pepperoni Pizza', zh: '意大利辣香肠披萨' },
+          price: 80000,
+          img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'pizza_goshtli',
+          name: { uz: "Go'shtli Pizza", ru: 'Пицца Мясная', en: 'Meat Pizza', zh: '牛肉披萨' },
+          price: 90000,
+          img: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'pizza_assorti',
+          name: { uz: 'Assorti Pizza', ru: 'Пицца Ассорти', en: 'Assorted Pizza', zh: '什锦披萨' },
+          price: 95000,
+          img: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'pizza_qazili',
+          name: { uz: 'Qazili Pizza', ru: 'Пицца с Казы', en: 'Kazy Pizza', zh: '马肉披萨' },
+          price: 100000,
+          img: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'pizza_mix',
+          name: { uz: 'Mix Pizza', ru: 'Пицца Микс', en: 'Mix Pizza', zh: '混合披萨' },
+          price: 100000,
+          img: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'sneklar',
+      name: { uz: 'SNEKLAR VA SOUSLAR', ru: 'СНЕКИ И СОУСЫ', en: 'SNACKS & SAUCES', zh: '小吃与酱料' },
+      icon: 'croissant',
+      items: [
+        {
+          id: 'fri',
+          name: { uz: 'Kartoshka Fri', ru: 'Картофель Фри', en: 'French Fries', zh: '炸薯条' },
+          price: 11000,
+          img: 'https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'stripsi',
+          name: { uz: 'Stripsi', ru: 'Стрипсы', en: 'Chicken Strips', zh: '香脆鸡柳' },
+          price: 15000,
+          img: 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'souslar',
+          name: { uz: 'Souslar (Ketchup / Pishloqli / Mayonez)', ru: 'Соусы (Кетчуп / Сырный / Майонез)', en: 'Sauces (Ketchup / Cheese / Mayo)', zh: '酱料（番茄酱/芝士酱/蛋黄酱）' },
+          price: 3000,
+          img: 'https://images.unsplash.com/photo-1528751014936-863e6e10dd9b?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    },
+    {
+      id: 'ichimliklar',
+      name: { uz: 'ICHIMLIKLAR', ru: 'НАПИТКИ', en: 'DRINKS', zh: '冷饮' },
+      icon: 'cup-soda',
+      items: [
+        {
+          id: 'fanta_025',
+          name: { uz: 'Fanta 0.25 L', ru: 'Фанта 0.25 Л', en: 'Fanta 0.25 L', zh: '芬达 0.25L' },
+          price: 5000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fanta_05',
+          name: { uz: 'Fanta 0.5 L', ru: 'Фанта 0.5 Л', en: 'Fanta 0.5 L', zh: '芬达 0.5L' },
+          price: 8000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fanta_1l',
+          name: { uz: 'Fanta 1.0 L', ru: 'Фанта 1.0 Л', en: 'Fanta 1.0 L', zh: '芬达 1.0L' },
+          price: 11000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fanta_15',
+          name: { uz: 'Fanta 1.5 L', ru: 'Фанта 1.5 Л', en: 'Fanta 1.5 L', zh: '芬达 1.5L' },
+          price: 15000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fanta_2l',
+          name: { uz: 'Fanta 2.0 L', ru: 'Фанта 2.0 Л', en: 'Fanta 2.0 L', zh: '芬达 2.0L' },
+          price: 18000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'cola_05',
+          name: { uz: 'Coca-Cola 0.5 L', ru: 'Кока-Кола 0.5 Л', en: 'Coca-Cola 0.5 L', zh: '可口可乐 0.5L' },
+          price: 8000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'cola_1l',
+          name: { uz: 'Coca-Cola 1.0 L', ru: 'Кока-Кола 1.0 Л', en: 'Coca-Cola 1.0 L', zh: '可口可乐 1.0L' },
+          price: 11000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'cola_15',
+          name: { uz: 'Coca-Cola 1.5 L', ru: 'Кока-Кола 1.5 Л', en: 'Coca-Cola 1.5 L', zh: '可口可乐 1.5L' },
+          price: 15000,
+          img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fusetea_05',
+          name: { uz: 'Fuse Tea 0.5 L', ru: 'Фьюз Ти 0.5 Л', en: 'Fuse Tea 0.5 L', zh: '雀巢茶 0.5L' },
+          price: 8000,
+          img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fusetea_1l',
+          name: { uz: 'Fuse Tea 1.0 L', ru: 'Фьюз Ти 1.0 Л', en: 'Fuse Tea 1.0 L', zh: '雀巢茶 1.0L' },
+          price: 11000,
+          img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'fusetea_15',
+          name: { uz: 'Fuse Tea 1.5 L', ru: 'Фьюз Ти 1.5 Л', en: 'Fuse Tea 1.5 L', zh: '雀巢茶 1.5L' },
+          price: 15000,
+          img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'palpi_05',
+          name: { uz: 'Palpi 0.5 L', ru: 'Палпи 0.5 Л', en: 'Palpy 0.5 L', zh: '果粒橙 0.5L' },
+          price: 10000,
+          img: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'palpi_1l',
+          name: { uz: 'Palpi 1.0 L', ru: 'Палпи 1.0 Л', en: 'Palpy 1.0 L', zh: '果粒橙 1.0L' },
+          price: 16000,
+          img: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'bonaqua_gaz_05',
+          name: { uz: 'Bonaqua Gazlangan 0.5 L', ru: 'Бонаква Газированная 0.5 Л', en: 'Bonaqua Sparkling 0.5 L', zh: '波纳夸含气矿泉水 0.5L' },
+          price: 5000,
+          img: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'bonaqua_nogaz_05',
+          name: { uz: 'Bonaqua Gazsiz 0.5 L', ru: 'Бонаква Без газа 0.5 Л', en: 'Bonaqua Still 0.5 L', zh: '波纳夸无气矿泉水 0.5L' },
+          price: 5000,
+          img: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'bonaqua_gaz_1l',
+          name: { uz: 'Bonaqua Gazlangan 1.0 L', ru: 'Бонаква Газированная 1.0 Л', en: 'Bonaqua Sparkling 1.0 L', zh: '波纳夸含气矿泉水 1.0L' },
+          price: 6000,
+          img: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'bonaqua_nogaz_1l',
+          name: { uz: 'Bonaqua Gazsiz 1.0 L', ru: 'Бонаква Без газа 1.0 Л', en: 'Bonaqua Still 1.0 L', zh: '波纳夸无气矿泉水 1.0L' },
+          price: 6000,
+          img: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'bonaqua_gaz_15',
+          name: { uz: 'Bonaqua Gazlangan 1.5 L', ru: 'Бонаква Газированная 1.5 Л', en: 'Bonaqua Sparkling 1.5 L', zh: '波纳夸含气矿泉水 1.5L' },
+          price: 7000,
+          img: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'bonaqua_nogaz_15',
+          name: { uz: 'Bonaqua Gazsiz 1.5 L', ru: 'Бонаква Без газа 1.5 Л', en: 'Bonaqua Still 1.5 L', zh: '波纳夸无气矿泉水 1.5L' },
+          price: 7000,
+          img: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'moxito',
+          name: { uz: 'Moxito (Muzdek)', ru: 'Мохито (Освежающий)', en: 'Mojito (Fresh)', zh: '莫吉托特饮' },
+          price: 15000,
+          img: 'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?auto=format&fit=crop&w=400&q=80'
+        }
+      ]
+    }
+  ]
+};
+
+const dict = {
+  uz: {
+    menu: 'Menyu',
+    promos: 'Setlar',
+    about: 'Biz haqimizda',
+    branch: 'Filial',
+    contacts: 'Kontaktlar',
+    search: "Taom yoki ichimlik qidirish...",
+    cart: 'Savat',
+    delivery: 'Yetkazib berish',
+    takeaway: 'Olib ketish',
+    region: 'Mintaqa',
+    login: 'Tizimga kirish',
+    admin: 'Kassir / Admin',
+    emptyCart: "Savatingiz bo'sh",
+    products: 'Mahsulotlar',
+    package: 'Qadoqlash xizmati',
+    total: 'Jami',
+    checkout: "Rasmiylashtirish",
+    wheelTitle: "Bugun nima yeymiz?",
+    wheelSub: "Tanlashga ikkilanyapsizmi? Omad g'ildiragini aylantiring!",
+    wheelSpin: "Aylantirish",
+    spinning: "Aylanmoqda...",
+    backToMenu: "Menyu sahifasiga qaytish",
+    receiveMethod: "Qabul qilish usuli",
+    yourOrder: "Sizning buyurtmangiz",
+    confirm: "Tasdiqlash",
+    orderAccepted: "Buyurtma qabul qilindi",
+    orderNum: "Buyurtma",
+    estTime: "Tahminiy vaqt",
+    printReceipt: "Chekni chiqarish",
+    home: "Bosh sahifaga",
+    addToCart: "Savatga qo'shish",
+    authLogin: "Kirish",
+    authReg: "Ro'yxatdan o'tish",
+    name: "Ismingiz",
+    email: "Elektron pochta (Gmail)",
+    phone: "Telefon raqamingiz",
+    password: "Parol",
+    code: "Tasdiqlash kodi",
+    sendCode: "Kodni yuborish",
+    confirmCode: "Tasdiqlash",
+    savePass: "Saqlash",
+    emailSent: "u089201@gmail.com (Nurangiz) dan pochtangizga 5 xonali kod yuborildi (KOD: {code})",
+    wrongCode: "Kod noto'g'ri",
+    logout: "Chiqish",
+    payOnline: "Oldindan to'lov",
+    payOnDelivery: "Borganda to'lov",
+    paymentType: "To'lov turi",
+    outOfZone: "Hududdan tashqarida! Faqat Xovos va Yangiyer",
+    selectOnMap: "Manzilni xaritadan belgilang",
+    phoneErr: "Telefon raqamni to'liq kiriting",
+    reqFields: "Barcha maydonlarni to'ldiring!",
+    userNotFound: "Topilmadi. Ro'yxatdan o'ting.",
+    wrongPass: "Pochta yoki parol xato",
+    myLocation: "Joylashuvimni aniqlash",
+    locationErr: "Joylashuvni aniqlab bo'lmadi",
+    phoneLbl: "Telefon raqam:",
+    addressLbl: "Manzil:",
+    cancel: "Bekor qilish"
+  },
+  ru: {
+    menu: 'Меню',
+    promos: 'Сеты',
+    about: 'О нас',
+    branch: 'Филиал',
+    contacts: 'Контакты',
+    search: 'Поиск блюда или напитка...',
+    cart: 'Корзина',
+    delivery: 'Доставка',
+    takeaway: 'Самовывоз',
+    region: 'Регион',
+    login: 'Войти',
+    admin: 'Кассир / Админ',
+    emptyCart: "Корзина пуста",
+    products: 'Продукты',
+    package: 'Упаковка',
+    total: 'Итого',
+    checkout: "Оформить",
+    wheelTitle: "Что сегодня поедим?",
+    wheelSub: "Не можете выбрать? Крутите колесо удачи!",
+    wheelSpin: "Крутить",
+    spinning: "Крутится...",
+    backToMenu: "В меню",
+    receiveMethod: "Способ получения",
+    yourOrder: "Ваш заказ",
+    confirm: "Подтвердить",
+    orderAccepted: "Заказ принят",
+    orderNum: "Заказ",
+    estTime: "Примерное время",
+    printReceipt: "Печать чека",
+    home: "На главную",
+    addToCart: "В корзину",
+    authLogin: "Войти",
+    authReg: "Регистрация",
+    name: "Ваше имя",
+    email: "Эл. почта (Gmail)",
+    phone: "Номер телефона",
+    password: "Пароль",
+    code: "Код подтверждения",
+    sendCode: "Отправить код",
+    confirmCode: "Подтвердить",
+    savePass: "Сохранить",
+    emailSent: "5-значный код отправлен от u089201@gmail.com (Nurangiz) (КОД: {code})",
+    wrongCode: "Неверный код",
+    logout: "Выйти",
+    payOnline: "Предоплата",
+    payOnDelivery: "Оплата при получении",
+    paymentType: "Тип оплаты",
+    outOfZone: "Вне зоны! Только Ховос и Янгиер",
+    selectOnMap: "Укажите адрес на карте",
+    phoneErr: "Введите номер полностью",
+    reqFields: "Заполните все поля!",
+    userNotFound: "Не найден. Зарегистрируйтесь.",
+    wrongPass: "Неверная почта или пароль",
+    myLocation: "Мое местоположение",
+    locationErr: "Не удалось определить местоположение",
+    phoneLbl: "Номер телефона:",
+    addressLbl: "Адрес:",
+    cancel: "Отмена"
+  },
+  en: {
+    menu: 'Menu',
+    promos: 'Sets',
+    about: 'About',
+    branch: 'Branch',
+    contacts: 'Contacts',
+    search: 'Search food or drinks...',
+    cart: 'Cart',
+    delivery: 'Delivery',
+    takeaway: 'Takeaway',
+    region: 'Region',
+    login: 'Login',
+    admin: 'Cashier/Admin',
+    emptyCart: "Cart is empty",
+    products: 'Products',
+    package: 'Packaging',
+    total: 'Total',
+    checkout: "Checkout",
+    wheelTitle: "What to eat today?",
+    wheelSub: "Can't decide? Spin the lucky wheel!",
+    wheelSpin: "Spin",
+    spinning: "Spinning...",
+    backToMenu: "Back to Menu",
+    receiveMethod: "Receiving Method",
+    yourOrder: "Your order",
+    confirm: "Confirm",
+    orderAccepted: "Order Accepted",
+    orderNum: "Order",
+    estTime: "Est. Time",
+    printReceipt: "Print Receipt",
+    home: "Home",
+    addToCart: "Add to cart",
+    authLogin: "Login",
+    authReg: "Register",
+    name: "Your Name",
+    email: "Email (Gmail)",
+    phone: "Phone Number",
+    password: "Password",
+    code: "Verification Code",
+    sendCode: "Send Code",
+    confirmCode: "Confirm",
+    savePass: "Save",
+    emailSent: "5-digit code sent from u089201@gmail.com (Nurangiz) (CODE: {code})",
+    wrongCode: "Wrong code",
+    logout: "Logout",
+    payOnline: "Prepayment",
+    payOnDelivery: "Pay on Delivery",
+    paymentType: "Payment Type",
+    outOfZone: "Out of zone! Only Khavast and Yangiyer",
+    selectOnMap: "Select address on map",
+    phoneErr: "Enter full phone number",
+    reqFields: "Fill in all fields!",
+    userNotFound: "Not found. Please register.",
+    wrongPass: "Wrong email or password",
+    myLocation: "My Location",
+    locationErr: "Could not determine location",
+    phoneLbl: "Phone Number:",
+    addressLbl: "Address:",
+    cancel: "Cancel"
+  },
+  zh: {
+    menu: '菜单',
+    promos: '套餐',
+    about: '关于',
+    branch: '分店',
+    contacts: '联系',
+    search: '搜索食品或饮料...',
+    cart: '购物车',
+    delivery: '配送',
+    takeaway: '外卖自取',
+    region: '地区',
+    login: '登录',
+    admin: '收银员/管理员',
+    emptyCart: "购物车是空的",
+    products: '产品',
+    package: '包装费',
+    total: '总计',
+    checkout: "结账",
+    wheelTitle: "今天吃什么？",
+    wheelSub: "无法决定？转动幸运轮盘！",
+    wheelSpin: "旋转",
+    spinning: "旋转中...",
+    backToMenu: "返回菜单",
+    receiveMethod: "收货方式",
+    yourOrder: "您的订单",
+    confirm: "确认",
+    orderAccepted: "订单已接受",
+    orderNum: "订单",
+    estTime: "预计时间",
+    printReceipt: "打印收据",
+    home: "主页",
+    addToCart: "加入购物车",
+    authLogin: "登录",
+    authReg: "注册",
+    name: "您的名字",
+    email: "电子邮件 (Gmail)",
+    phone: "电话号码",
+    password: "密码",
+    code: "验证码",
+    sendCode: "发送验证码",
+    confirmCode: "确认",
+    savePass: "保存",
+    emailSent: "5位验证码已由 u089201@gmail.com (Nurangiz) 发送 (代码: {code})",
+    wrongCode: "验证码错误",
+    logout: "登出",
+    payOnline: "预付款",
+    payOnDelivery: "货到付款",
+    paymentType: "付款方式",
+    outOfZone: "超出配送范围！仅限 Khavast 和 Yangiyer",
+    selectOnMap: "在地图上选择地址",
+    phoneErr: "请输入完整的电话号码",
+    reqFields: "填写所有字段！",
+    userNotFound: "未找到。请注册。",
+    wrongPass: "邮箱或密码错误",
+    myLocation: "我的位置",
+    locationErr: "无法确定位置",
+    phoneLbl: "电话号码:",
+    addressLbl: "地址:",
+    cancel: "取消"
+  }
+};
+
+window.menuData = menuData;
+window.dict = dict;
+
+
+// Donerci Xovos - Telegram Bot Integratsiya Xizmati
+var TelegramService = {
+  /**
+   * Yangi buyurtma haqidagi ma'lumotni Telegram botga yuborish
+   * @param {Object} orderData Buyurtma ma'lumotlari
+   */
+  sendOrder: function(orderData) {
+    var orderId = orderData.orderId;
+    var customerName = orderData.customerName;
+    var phone = orderData.phone;
+    var orderType = orderData.orderType;
+    var payMethod = orderData.payMethod;
+    var cart = orderData.cart;
+    var finalTotal = orderData.finalTotal;
+    var coords = orderData.coords;
+    var lang = orderData.lang || 'uz';
+
+    var cfg = window.CONFIG || {};
+    var token = cfg.TELEGRAM_TOKEN || '8700858307:AAGTSNIrRglOVsdLR_HWPD1VoH9quSdHHDY';
+    var chatId = cfg.TELEGRAM_CHAT_ID || '7290313985';
+    var shopLoc = cfg.SHOP_LOCATION || {};
+    var shopLat = shopLoc.lat || 40.222361;
+    var shopLng = shopLoc.lng || 68.840528;
+
+    // Xarid qilingan mahsulotlar ro'yxati
+    var itemsText = cart
+      .map(function(c) {
+        var n = (c.name && (c.name['uz'] || c.name[lang])) || 'Mahsulot';
+        return '• ' + c.qty + 'x ' + n + ' — ' + (c.price * c.qty).toLocaleString() + ' UZS';
+      })
+      .join('\n');
+
+    var deliveryFee = orderData.deliveryFee || 0;
+    var distanceKm = orderData.distanceKm;
+
+    var text = '🆕 *YANGI BUYURTMA! (#DO-' + orderId + ')*\n\n';
+    text += '👤 *Mijoz:* ' + customerName + '\n';
+    text += '📞 *Tel:* ' + phone + '\n';
+    text += '🛵 *Yetkazish turi:* ' + (orderType === 'takeaway' ? 'Olib ketish' : 'Yetkazib berish') + '\n';
+    if (orderType === 'delivery' && distanceKm) {
+      text += '📏 *Masofa:* ' + distanceKm + ' km (1 km = 4,000 so\'m)\n';
+    }
+    text += "💳 *To'lov usuli:* " + (payMethod === 'online' ? "Oldindan to'lov" : "Borganda to'lov (Naqd/Karta)") + '\n\n';
+    text += '🛒 *Xaridlar:*\n' + itemsText + '\n';
+    text += '📦 Qadoqlash — 1,000 UZS\n';
+    if (orderType === 'delivery') {
+      text += '🛵 Yetkazib berish (' + (distanceKm || '1') + ' km) — ' + deliveryFee.toLocaleString() + ' UZS\n';
+    }
+    text += '\n💰 *JAMI:* ' + finalTotal.toLocaleString() + ' UZS\n';
+
+    if (orderType === 'delivery' && coords) {
+      text += '\n📍 [Mijoz manzili (Xarita)](https://www.google.com/maps/search/?api=1&query=' + coords.lat + ',' + coords.lng + ')';
+      text += '\n🚗 [Yetkazib beruvchi uchun marshrut (Navigatsiya)](https://www.google.com/maps/dir/?api=1&origin=' + shopLat + ',' + shopLng + '&destination=' + coords.lat + ',' + coords.lng + '&travelmode=driving)';
+    }
+
+    return fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: 'Markdown',
+        disable_web_page_preview: false
+      })
+    })
+    .then(function(res) {
+      return res.json();
+    })
+    .catch(function(err) {
+      console.error('Telegramga yuborishda xatolik:', err);
+      return null;
+    });
+  }
+};
+
+window.TelegramService = TelegramService;
+
+  </script>
+
+  <!-- Oldindan kompyilatsiya qilingan (Precompiled) React Komponentlari - 100% Tez va Xatosiz -->
+  <script>
+// Foydalanuvchi autentifikatsiya (Kirish / Ro'yxatdan o'tish / OTP) modali
+const AuthModal = ({
+  onLogin,
+  onClose,
+  t,
+  lang,
+  setLang
+}) => {
+  const [mode, setMode] = React.useState('login');
+  const [form, setForm] = React.useState({
+    name: '',
+    email: '',
+    password: '',
+    code: ''
+  });
+  const [error, setError] = React.useState('');
+  const [generatedCode, setGeneratedCode] = React.useState('');
+  const submit = () => {
+    setError('');
+    if (mode === 'login') {
+      if (!form.email || !form.password) {
+        setError(t.reqFields);
+        return;
+      }
+      if (!form.email.endsWith('@gmail.com')) {
+        setError("Faqat @gmail.com pochtasi qabul qilinadi");
+        return;
+      }
+      const saved = localStorage.getItem('donerci_user_' + form.email);
+      if (saved) {
+        const u = JSON.parse(saved);
+        if (u.password === form.password) {
+          onLogin(u);
+        } else {
+          setError(t.wrongPass);
+        }
+      } else {
+        setError(t.userNotFound);
+      }
+    } else if (mode === 'register') {
+      if (!form.name || !form.email || !form.password) {
+        setError(t.reqFields);
+        return;
+      }
+      if (!form.email.endsWith('@gmail.com')) {
+        setError("Faqat @gmail.com pochtasi qabul qilinadi");
+        return;
+      }
+      const code = Math.floor(10000 + Math.random() * 90000).toString();
+      setGeneratedCode(code);
+      alert(t.emailSent.replace('{code}', code));
+      setMode('verify');
+    } else if (mode === 'verify') {
+      if (form.code === generatedCode) {
+        const u = {
+          name: form.name,
+          email: form.email,
+          password: form.password
+        };
+        localStorage.setItem('donerci_user_' + form.email, JSON.stringify(u));
+        onLogin(u);
+      } else {
+        setError(t.wrongCode);
+      }
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-gray-900/90 backdrop-blur-xs"
+  }, onClose && /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "absolute top-6 left-6 text-gray-400 hover:text-white transition flex items-center gap-2 text-sm cursor-pointer"
+  }, "\u2715 Yopish"), /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-6 right-6"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: lang,
+    onChange: e => setLang(e.target.value),
+    className: "bg-gray-800 text-white font-medium px-4 py-2 rounded-lg outline-none cursor-pointer border border-gray-700 focus:border-brand transition"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "uz"
+  }, "UZ"), /*#__PURE__*/React.createElement("option", {
+    value: "ru"
+  }, "RU"), /*#__PURE__*/React.createElement("option", {
+    value: "en"
+  }, "EN"), /*#__PURE__*/React.createElement("option", {
+    value: "zh"
+  }, "ZH"))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white w-full max-w-md rounded-xl shadow-xl p-8 animate-fade-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-gray-900 font-extrabold text-4xl tracking-tight leading-none text-center mb-8"
+  }, "Donerci", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    className: "text-brand text-2xl font-semibold tracking-normal"
+  }, "Xovos")), /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-bold text-gray-800 mb-6 text-center border-b border-gray-200 pb-4"
+  }, mode === 'login' ? t.authLogin : mode === 'register' ? t.authReg : t.confirmCode), error && /*#__PURE__*/React.createElement("div", {
+    className: "bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg mb-4 text-sm font-medium text-center"
+  }, error), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-4 mb-6"
+  }, mode === 'login' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    placeholder: t.email,
+    value: form.email,
+    onChange: e => setForm({
+      ...form,
+      email: e.target.value
+    }),
+    className: "w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand transition mb-4 text-gray-800"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    placeholder: t.password,
+    value: form.password,
+    onChange: e => setForm({
+      ...form,
+      password: e.target.value
+    }),
+    className: "w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand transition text-gray-800"
+  })), mode === 'register' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: t.name,
+    value: form.name,
+    onChange: e => setForm({
+      ...form,
+      name: e.target.value
+    }),
+    className: "w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand transition mb-4 text-gray-800"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    placeholder: t.email,
+    value: form.email,
+    onChange: e => setForm({
+      ...form,
+      email: e.target.value
+    }),
+    className: "w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand transition mb-4 text-gray-800"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    placeholder: t.password,
+    value: form.password,
+    onChange: e => setForm({
+      ...form,
+      password: e.target.value
+    }),
+    className: "w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand transition text-gray-800"
+  })), mode === 'verify' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500 mb-4 text-center"
+  }, "Maktub sizga ", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-800 font-medium"
+  }, "u089201@gmail.com (Nurangiz)"), /*#__PURE__*/React.createElement("br", null), " tomonidan yuborildi."), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: t.code + " (5 xonali)",
+    value: form.code,
+    onChange: e => setForm({
+      ...form,
+      code: e.target.value.replace(/\D/g, '').substring(0, 5)
+    }),
+    className: "w-full p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-3xl font-bold tracking-[0.25em] outline-none focus:border-brand focus:ring-1 focus:ring-brand transition text-gray-800"
+  }))), /*#__PURE__*/React.createElement("button", {
+    onClick: submit,
+    className: "w-full bg-brand text-white py-3 rounded-lg font-semibold text-lg hover:bg-brandDark transition shadow-sm"
+  }, mode === 'login' ? t.authLogin : mode === 'register' ? t.sendCode : t.confirmCode), mode === 'verify' && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setMode('register'),
+    className: "w-full mt-4 text-gray-500 font-medium hover:text-gray-800 transition text-sm"
+  }, "Orqaga"), mode !== 'verify' && /*#__PURE__*/React.createElement("div", {
+    className: "text-center mt-6 flex flex-col gap-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode(mode === 'login' ? 'register' : 'login');
+      setError('');
+      setForm({
+        name: '',
+        email: '',
+        password: '',
+        code: ''
+      });
+    },
+    className: "text-brand font-medium text-sm hover:underline cursor-pointer"
+  }, mode === 'login' ? "Ro'yxatdan o'tish" : "Tizimga kirish"), onClose && /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-gray-400 hover:text-gray-200 text-xs transition cursor-pointer"
+  }, "Mehmon sifatida menyuni ko'rish \u2192"))));
+};
+window.AuthModal = AuthModal;
+
+// Asosiy sahifa komponenti (Kategoriyalar, Mahsulotlar ro'yxati va Omad g'ildiragi)
+const Home = ({
+  menu,
+  addToCart,
+  searchQuery,
+  t,
+  lang
+}) => {
+  const [activeCategory, setActiveCategory] = React.useState(menu.categories[0].id);
+  const [spinning, setSpinning] = React.useState(false);
+  const [wheelResult, setWheelResult] = React.useState(null);
+  const allItems = menu.categories.flatMap(c => c.items);
+  const spinWheel = () => {
+    if (spinning) return;
+    setSpinning(true);
+    setWheelResult(null);
+    let counter = 0;
+    const interval = setInterval(() => {
+      setWheelResult(allItems[Math.floor(Math.random() * allItems.length)]);
+      counter++;
+      if (counter > 15) {
+        clearInterval(interval);
+        setSpinning(false);
+      }
+    }, 100);
+  };
+  const filteredCategories = menu.categories.map(cat => ({
+    ...cat,
+    items: cat.items.filter(item => item.name[lang].toLowerCase().includes(searchQuery.toLowerCase()))
+  })).filter(cat => cat.items.length > 0);
+  React.useEffect(() => {
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }, [activeCategory, wheelResult, filteredCategories, lang]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col lg:flex-row gap-8 animate-fade-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full lg:w-64 shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sticky top-32"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-900 text-white p-4 rounded-t-xl flex items-center gap-3 font-semibold text-sm uppercase tracking-wider border-b border-gray-800 z-10 relative"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "layout-grid",
+    className: "w-4 h-4"
+  }), " ", t.menu), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white border border-t-0 border-gray-200 rounded-b-xl overflow-hidden shadow-sm flex flex-col py-2"
+  }, menu.categories.map(cat => /*#__PURE__*/React.createElement("a", {
+    key: cat.id,
+    href: `#cat-${cat.id}`,
+    onClick: () => setActiveCategory(cat.id),
+    className: `flex items-center gap-3 px-5 py-3 text-sm font-medium transition-colors border-l-4 ${activeCategory === cat.id ? 'border-brand text-gray-900 bg-brandYellowLight' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": cat.icon,
+    className: "w-4 h-4 opacity-70"
+  }), cat.name[lang]))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 space-y-10 pb-20"
+  }, !searchQuery && /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-900 rounded-xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-md border border-gray-800 relative overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-0 right-0 w-64 h-64 bg-brandYellow/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 text-white relative z-10"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "text-2xl font-bold mb-2 text-brandYellow"
+  }, t.wheelTitle), /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-400 text-sm mb-4"
+  }, t.wheelSub), wheelResult && /*#__PURE__*/React.createElement("div", {
+    className: `mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700 flex items-center gap-4 transition-all duration-300 ${spinning ? 'opacity-50 blur-[1px]' : 'opacity-100'}`
+  }, /*#__PURE__*/React.createElement("img", {
+    src: wheelResult.img,
+    className: "w-16 h-16 rounded-md object-cover",
+    alt: wheelResult.name[lang]
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 text-white"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "font-semibold text-base leading-tight mb-1"
+  }, wheelResult.name[lang]), /*#__PURE__*/React.createElement("p", {
+    className: "text-brandYellow font-bold text-sm"
+  }, wheelResult.price.toLocaleString(), " so'm")), !spinning && /*#__PURE__*/React.createElement("button", {
+    onClick: () => addToCart(wheelResult),
+    className: "bg-white text-gray-900 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition text-sm"
+  }, t.addToCart))), /*#__PURE__*/React.createElement("button", {
+    onClick: spinWheel,
+    disabled: spinning,
+    className: "bg-brandYellow text-gray-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-brandYellowDark transition flex items-center gap-3 shrink-0 disabled:opacity-80 relative z-10 cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "dices",
+    className: "w-6 h-6"
+  }), spinning ? t.spinning : t.wheelSpin)), filteredCategories.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "text-center text-gray-500 py-16 font-medium text-lg"
+  }, "Mahsulot topilmadi..."), filteredCategories.map(cat => /*#__PURE__*/React.createElement("div", {
+    key: cat.id,
+    id: `cat-${cat.id}`,
+    className: "scroll-mt-32 pt-2"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-2xl font-bold text-gray-900 mb-6"
+  }, cat.name[lang]), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+  }, cat.items.map(item => /*#__PURE__*/React.createElement("div", {
+    key: item.id,
+    className: "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all flex flex-col group"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative overflow-hidden aspect-[4/3] bg-gray-50 flex items-center justify-center border-b border-gray-100"
+  }, item.oldPrice && /*#__PURE__*/React.createElement("div", {
+    className: "absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded text-xs font-semibold z-10 shadow-sm flex flex-col items-center"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "line-through text-[9px] opacity-80"
+  }, item.oldPrice.toLocaleString()), /*#__PURE__*/React.createElement("span", null, item.price.toLocaleString())), /*#__PURE__*/React.createElement("img", {
+    src: item.img,
+    className: "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
+    alt: item.name[lang]
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col flex-1 p-4"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-semibold text-base text-gray-900 mb-1 leading-snug"
+  }, item.name[lang]), item.desc && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mb-2 leading-relaxed"
+  }, item.desc[lang]), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-baseline gap-1 mb-4"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-bold text-lg text-gray-900"
+  }, item.price.toLocaleString()), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-gray-500 font-medium"
+  }, "so'm")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => addToCart(item),
+    className: "w-full bg-gray-50 border border-gray-200 text-gray-700 hover:bg-brand hover:border-brand hover:text-white font-medium py-2.5 rounded-lg transition-colors mt-auto flex items-center justify-center gap-2 text-sm cursor-pointer"
+  }, t.addToCart)))))))));
+};
+window.Home = Home;
+
+// Buyurtmani rasmiylashtirish (Manzil xaritasi va marshrutni hisoblash)
+const Checkout = ({
+  cart,
+  finalTotal,
+  onSuccess,
+  onBack,
+  t,
+  user
+}) => {
+  const [type, setType] = React.useState('delivery');
+  const [payMethod] = React.useState('on_delivery');
+  const [form, setForm] = React.useState({
+    name: user ? user.name : '',
+    phone: ''
+  });
+  const [mapError, setMapError] = React.useState(false);
+  const [coords, setCoords] = React.useState(null);
+  const [distanceInfo, setDistanceInfo] = React.useState(null);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+  const routeLineRef = React.useRef(null);
+
+  // Har 1 km ga 4 000 so'm yetkazib berish narxini hisoblash
+  const perKmRate = window.CONFIG && window.CONFIG.DELIVERY_FEE_PER_KM || 4000;
+  const packageFee = window.CONFIG && window.CONFIG.PACKAGE_FEE || 1000;
+  const kmNum = distanceInfo && distanceInfo.km ? parseFloat(distanceInfo.km) : 1;
+  const deliveryFee = type === 'delivery' ? Math.max(perKmRate, Math.ceil(kmNum) * perKmRate) : 0;
+  const productsTotal = cart.reduce((a, c) => a + c.price * c.qty, 0);
+  const computedTotal = productsTotal + packageFee + deliveryFee;
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }, []);
+  React.useEffect(() => {
+    if (type !== 'delivery') return;
+    let map = mapRef.current;
+    if (!map) {
+      const cfg = window.CONFIG || {};
+      const shopLoc = cfg.SHOP_LOCATION || {};
+      const shopCoords = [shopLoc.lat || 40.222361, shopLoc.lng || 68.840528];
+      map = L.map('checkout-map').setView(shopCoords, 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      const shop = L.latLng(shopCoords[0], shopCoords[1]);
+      const maxRadius = cfg.MAX_DELIVERY_RADIUS_METERS || 15000;
+
+      // Filial belgisi
+      const shopIcon = L.divIcon({
+        className: 'custom-shop-icon',
+        html: '<div style="background-color:#059669;color:white;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:2px solid #047857;box-shadow:0 2px 4px rgba(0,0,0,0.2);font-weight:700;font-size:14px;">D</div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+      L.marker(shopCoords, {
+        icon: shopIcon
+      }).addTo(map).bindPopup("<b>Donerci Xovos (Filial)</b>");
+
+      // Yetkazib berish zonasi doirasi
+      L.circle(shop, {
+        radius: maxRadius,
+        color: '#059669',
+        fillOpacity: 0.08,
+        weight: 2,
+        dashArray: '4, 4'
+      }).addTo(map);
+
+      // Mijoz manzil belgisi (ko'chiriladigan pin)
+      const userPinIcon = L.divIcon({
+        className: 'custom-user-pin',
+        html: '<div style="background-color:#111827;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 3px 6px rgba(0,0,0,0.3);"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+      });
+      let marker = L.marker([shopCoords[0] - 0.005, shopCoords[1] + 0.005], {
+        draggable: true,
+        icon: userPinIcon
+      }).addTo(map);
+      markerRef.current = marker;
+
+      // Restorandan mijozgacha bo'lgan yo'nalish chizig'i
+      let routeLine = L.polyline([shop, marker.getLatLng()], {
+        color: '#059669',
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '6, 6'
+      }).addTo(map);
+      routeLineRef.current = routeLine;
+      const updateRouteAndDistance = latlng => {
+        const distMeters = shop.distanceTo(latlng);
+        if (distMeters > maxRadius) {
+          setMapError(true);
+          setCoords(null);
+          setDistanceInfo(null);
+          if (routeLineRef.current) routeLineRef.current.setStyle({
+            color: '#ef4444'
+          });
+        } else {
+          setMapError(false);
+          setCoords(latlng);
+          const distKm = (distMeters / 1000).toFixed(1);
+          const estMin = Math.max(12, Math.round(10 + parseFloat(distKm) * 2.5));
+          setDistanceInfo({
+            km: distKm,
+            min: estMin
+          });
+          if (routeLineRef.current) {
+            routeLineRef.current.setLatLngs([shop, latlng]);
+            routeLineRef.current.setStyle({
+              color: '#059669'
+            });
+          }
+        }
+      };
+      marker.on('drag', () => {
+        const currentPos = marker.getLatLng();
+        if (routeLineRef.current) {
+          routeLineRef.current.setLatLngs([shop, currentPos]);
+        }
+      });
+      marker.on('dragend', () => updateRouteAndDistance(marker.getLatLng()));
+      map.on('click', e => {
+        marker.setLatLng(e.latlng);
+        updateRouteAndDistance(e.latlng);
+      });
+      updateRouteAndDistance(marker.getLatLng());
+      mapRef.current = map;
+    }
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+        routeLineRef.current = null;
+      }
+    };
+  }, [type]);
+  const handlePhoneChange = e => {
+    let val = e.target.value.replace(/[^\d+]/g, '');
+    if (!val.startsWith('+998')) val = '+998';
+    if (val.length > 13) val = val.substring(0, 13);
+    setForm({
+      ...form,
+      phone: val
+    });
+  };
+  const locateMe = e => {
+    e.preventDefault();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+        if (mapRef.current && markerRef.current) {
+          markerRef.current.setLatLng(latlng);
+          mapRef.current.setView(latlng, 14);
+          const cfg = window.CONFIG || {};
+          const shopLoc = cfg.SHOP_LOCATION || {};
+          const shop = L.latLng(shopLoc.lat || 40.222361, shopLoc.lng || 68.840528);
+          const maxRadius = cfg.MAX_DELIVERY_RADIUS_METERS || 15000;
+          const distMeters = shop.distanceTo(latlng);
+          if (distMeters > maxRadius) {
+            setMapError(true);
+            setCoords(null);
+            setDistanceInfo(null);
+          } else {
+            setMapError(false);
+            setCoords(latlng);
+            const distKm = (distMeters / 1000).toFixed(1);
+            const estMin = Math.max(12, Math.round(10 + parseFloat(distKm) * 2.5));
+            setDistanceInfo({
+              km: distKm,
+              min: estMin
+            });
+            if (routeLineRef.current) {
+              routeLineRef.current.setLatLngs([shop, latlng]);
+              routeLineRef.current.setStyle({
+                color: '#059669'
+              });
+            }
+          }
+        }
+      }, () => {
+        alert(t.locationErr);
+      });
+    } else {
+      alert(t.locationErr);
+    }
+  };
+  const handleSubmit = () => {
+    if (!form.name || form.phone.length !== 13) {
+      alert(t.phoneErr);
+      return;
+    }
+    if (type === 'delivery' && (mapError || !coords)) {
+      alert(t.outOfZone);
+      return;
+    }
+    const id = Math.floor(Math.random() * 10000);
+
+    // Telegram botga xabar yuborish
+    window.TelegramService.sendOrder({
+      orderId: id,
+      customerName: form.name,
+      phone: form.phone,
+      orderType: type,
+      payMethod: payMethod,
+      cart: cart,
+      deliveryFee: deliveryFee,
+      distanceKm: distanceInfo ? distanceInfo.km : '1.0',
+      finalTotal: computedTotal,
+      coords: coords
+    }).then(() => {
+      onSuccess(type, coords, payMethod, id, distanceInfo, computedTotal, deliveryFee);
+    }).catch(() => {
+      onSuccess(type, coords, payMethod, id, distanceInfo, computedTotal, deliveryFee);
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-5xl mx-auto py-6 animate-fade-in"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    className: "flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 font-medium transition bg-white px-4 py-2 rounded-lg border border-gray-200 hover:border-gray-300 w-fit text-sm cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "arrow-left",
+    className: "w-4 h-4"
+  }), " ", t.backToMenu), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 lg:grid-cols-3 gap-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "lg:col-span-2 space-y-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-bold mb-4 text-gray-900"
+  }, t.receiveMethod), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col sm:flex-row gap-4"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: `flex-1 border-2 rounded-lg p-4 text-center cursor-pointer transition-all ${type === 'delivery' ? 'border-brand bg-brandYellowLight/50' : 'border-gray-100 hover:border-gray-200'}`
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    className: "hidden",
+    checked: type === 'delivery',
+    onChange: () => setType('delivery')
+  }), /*#__PURE__*/React.createElement("div", {
+    className: `w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-3 transition-colors ${type === 'delivery' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-400'}`
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "bike",
+    className: "w-5 h-5"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: `block font-semibold text-sm ${type === 'delivery' ? 'text-gray-900' : 'text-gray-500'}`
+  }, t.delivery)), /*#__PURE__*/React.createElement("label", {
+    className: `flex-1 border-2 rounded-lg p-4 text-center cursor-pointer transition-all ${type === 'takeaway' ? 'border-brand bg-brandYellowLight/50' : 'border-gray-100 hover:border-gray-200'}`
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "radio",
+    className: "hidden",
+    checked: type === 'takeaway',
+    onChange: () => setType('takeaway')
+  }), /*#__PURE__*/React.createElement("div", {
+    className: `w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-3 transition-colors ${type === 'takeaway' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-400'}`
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "store",
+    className: "w-5 h-5"
+  })), /*#__PURE__*/React.createElement("span", {
+    className: `block font-semibold text-sm ${type === 'takeaway' ? 'text-gray-900' : 'text-gray-500'}`
+  }, t.takeaway)))), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white p-6 rounded-xl shadow-sm border border-gray-200"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-bold mb-4 text-gray-900"
+  }, t.contacts), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 md:grid-cols-2 gap-4"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: t.name,
+    value: form.name,
+    onChange: e => setForm({
+      ...form,
+      name: e.target.value
+    }),
+    className: "p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand text-sm transition"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "tel",
+    placeholder: t.phone,
+    value: form.phone,
+    onFocus: () => {
+      if (!form.phone) setForm({
+        ...form,
+        phone: '+998'
+      });
+    },
+    onChange: handlePhoneChange,
+    className: "p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-brand focus:ring-1 focus:ring-brand text-sm transition"
+  }), type === 'delivery' && /*#__PURE__*/React.createElement("div", {
+    className: "md:col-span-2 mt-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "font-semibold text-gray-900 text-sm"
+  }, t.selectOnMap), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Pinnie manzilingiz ustiga olib boring")), /*#__PURE__*/React.createElement("button", {
+    onClick: locateMe,
+    type: "button",
+    className: "text-brand font-medium text-xs flex items-center gap-1.5 hover:bg-brandYellowLight px-3 py-1.5 rounded-md transition border border-brand/20 cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "crosshair",
+    className: "w-3.5 h-3.5"
+  }), " ", t.myLocation)), distanceInfo && !mapError && /*#__PURE__*/React.createElement("div", {
+    className: "bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg mb-3 flex flex-wrap items-center justify-between text-xs sm:text-sm font-medium gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "navigation",
+    className: "w-4 h-4 text-emerald-600"
+  }), /*#__PURE__*/React.createElement("span", null, "Masofa: ", /*#__PURE__*/React.createElement("b", null, distanceInfo.km, " km"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 text-emerald-700"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "wallet",
+    className: "w-4 h-4 text-emerald-600"
+  }), /*#__PURE__*/React.createElement("span", null, "Yetkazish: ", /*#__PURE__*/React.createElement("b", null, deliveryFee.toLocaleString(), " UZS"), " (1 km = 4,000 so'm)")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 text-emerald-700"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "clock",
+    className: "w-4 h-4"
+  }), /*#__PURE__*/React.createElement("span", null, "Vaqt: ", /*#__PURE__*/React.createElement("b", null, "~", distanceInfo.min, " daqiqa")))), /*#__PURE__*/React.createElement("div", {
+    id: "checkout-map",
+    className: "w-full h-[320px] rounded-lg border border-gray-200 z-10 overflow-hidden relative shadow-inner"
+  }), mapError && /*#__PURE__*/React.createElement("div", {
+    className: "text-red-600 font-medium mt-3 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "alert-triangle",
+    className: "w-4 h-4"
+  }), " ", t.outOfZone))))), /*#__PURE__*/React.createElement("div", {
+    className: "lg:col-span-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-900 text-white p-6 rounded-xl shadow-lg border border-gray-800 h-fit sticky top-32"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-lg font-bold mb-6 text-white border-b border-gray-700 pb-3"
+  }, t.yourOrder), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-3 text-gray-300 text-sm"
+  }, /*#__PURE__*/React.createElement("span", null, t.products), /*#__PURE__*/React.createElement("span", null, productsTotal.toLocaleString(), " UZS")), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-3 text-gray-300 text-sm"
+  }, /*#__PURE__*/React.createElement("span", null, t.package), /*#__PURE__*/React.createElement("span", null, packageFee.toLocaleString(), " UZS")), type === 'delivery' ? /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-4 text-emerald-400 text-sm border-b border-gray-700 pb-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium"
+  }, t.delivery), /*#__PURE__*/React.createElement("span", {
+    className: "block text-xs text-gray-400"
+  }, "(", distanceInfo ? distanceInfo.km : '1.0', " km \xD7 4,000 so'm)")), /*#__PURE__*/React.createElement("span", {
+    className: "font-bold"
+  }, deliveryFee.toLocaleString(), " UZS")) : /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-4 text-gray-400 text-sm border-b border-gray-700 pb-4"
+  }, /*#__PURE__*/React.createElement("span", null, t.delivery), /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-emerald-400"
+  }, "0 UZS (Olib ketish)")), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between text-xl font-bold mb-8 text-white"
+  }, /*#__PURE__*/React.createElement("span", null, t.total), /*#__PURE__*/React.createElement("span", null, computedTotal.toLocaleString(), " UZS")), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSubmit,
+    className: "w-full bg-brand text-white py-3.5 rounded-lg font-semibold text-base hover:bg-brandDark transition shadow-sm flex justify-center items-center gap-2 group cursor-pointer"
+  }, t.confirm, " ", /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "arrow-right",
+    className: "w-5 h-5 group-hover:translate-x-1 transition-transform"
+  }))))));
+};
+window.Checkout = Checkout;
+
+// Buyurtma holatini kuzatish (Jonli marshrut, kuryer harakati va navigatsiya)
+const OrderTracking = ({
+  onHome,
+  t,
+  type,
+  cart,
+  finalTotal,
+  user,
+  lang,
+  coords,
+  payMethod,
+  orderId,
+  deliveryFee,
+  distanceInfo
+}) => {
+  const mapRef = React.useRef(null);
+  const courierMarkerRef = React.useRef(null);
+  const fullRouteLineRef = React.useRef(null);
+  const passedRouteLineRef = React.useRef(null);
+  const [deliveryStatus, setDeliveryStatus] = React.useState('on_the_way');
+  const [progressPercent, setProgressPercent] = React.useState(0);
+  const [etaMinutes, setEtaMinutes] = React.useState(15);
+  const [remainingKm, setRemainingKm] = React.useState('2.5');
+  const cfg = window.CONFIG || {};
+  const shopLoc = cfg.SHOP_LOCATION || {};
+  const shopLat = shopLoc.lat || 40.222361;
+  const shopLng = shopLoc.lng || 68.840528;
+  const userLat = coords ? coords.lat : 40.218000;
+  const userLng = coords ? coords.lng : 68.845000;
+
+  // Har 1 km ga 4 000 so'm yetkazib berish to'lovi
+  const perKmRate = cfg.DELIVERY_FEE_PER_KM || 4000;
+  const initialDistKm = (L.latLng(shopLat, shopLng).distanceTo(L.latLng(userLat, userLng)) / 1000).toFixed(1);
+  const effectiveDistKm = distanceInfo && distanceInfo.km || initialDistKm;
+  const effectiveDeliveryFee = type === 'delivery' ? deliveryFee !== undefined && deliveryFee !== null ? deliveryFee : Math.max(perKmRate, Math.ceil(parseFloat(effectiveDistKm)) * perKmRate) : 0;
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+    if (type === 'takeaway') {
+      setTimeout(() => window.print(), 500);
+      return;
+    }
+    let map = mapRef.current;
+    let animationInterval;
+    if (!map) {
+      map = L.map('map', {
+        zoomControl: true
+      }).setView([shopLat, shopLng], 14);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      mapRef.current = map;
+    } else {
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+          map.removeLayer(layer);
+        }
+      });
+    }
+
+    // 1. Restoran belgisi
+    const shopIcon = L.divIcon({
+      className: 'custom-shop-icon',
+      html: '<div style="background-color:#059669;color:white;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:2px solid #047857;box-shadow:0 3px 6px rgba(0,0,0,0.2);font-weight:800;font-size:16px;">D</div>',
+      iconSize: [38, 38],
+      iconAnchor: [19, 19]
+    });
+    L.marker([shopLat, shopLng], {
+      icon: shopIcon
+    }).addTo(map).bindPopup("<b>Donerci Xovos (Filial)</b>");
+
+    // 2. Mijoz manzil belgisi
+    const userIcon = L.divIcon({
+      className: 'custom-user-icon',
+      html: '<div style="background-color:#111827;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 36]
+    });
+    L.marker([userLat, userLng], {
+      icon: userIcon
+    }).addTo(map).bindPopup("<b>Sizning manzilingiz</b>");
+
+    // 3. Kuryer harakati belgisi
+    const createCourierIcon = badgeText => {
+      return L.divIcon({
+        className: 'custom-courier-icon',
+        html: '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">' + '<div style="background:#111827;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1px solid #f59e0b;">' + badgeText + '</div>' + '<div style="background-color:#f59e0b;color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);position:relative;">' + '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>' + '</div></div>',
+        iconSize: [120, 60],
+        iconAnchor: [60, 52]
+      });
+    };
+    let courierMarker = L.marker([shopLat, shopLng], {
+      icon: createCourierIcon("Kuryer yo'lga chiqmoqda")
+    }).addTo(map);
+    courierMarkerRef.current = courierMarker;
+
+    // Masofani hisoblash (km)
+    const initialDistKm = (L.latLng(shopLat, shopLng).distanceTo(L.latLng(userLat, userLng)) / 1000).toFixed(1);
+    setRemainingKm(initialDistKm);
+    const initialEta = Math.max(10, Math.round(10 + parseFloat(initialDistKm) * 2.2));
+    setEtaMinutes(initialEta);
+
+    // Marshrut chizig'ini olish va animatsiya boshlash
+    const startAnimation = routeCoordinates => {
+      if (!routeCoordinates || routeCoordinates.length < 2) {
+        const totalFallbackPoints = 50;
+        routeCoordinates = [];
+        for (let i = 0; i <= totalFallbackPoints; i++) {
+          const ratio = i / totalFallbackPoints;
+          const lat = shopLat + (userLat - shopLat) * ratio;
+          const lng = shopLng + (userLng - shopLng) * ratio;
+          routeCoordinates.push([lat, lng]);
+        }
+      }
+
+      // To'liq marshrut
+      L.polyline(routeCoordinates, {
+        color: '#047857',
+        weight: 7,
+        opacity: 0.3,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+      const fullRouteLine = L.polyline(routeCoordinates, {
+        color: '#059669',
+        weight: 5,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+        dashArray: '8, 8'
+      }).addTo(map);
+      fullRouteLineRef.current = fullRouteLine;
+      const passedRouteLine = L.polyline([], {
+        color: '#4b5563',
+        weight: 5,
+        opacity: 0.7,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(map);
+      passedRouteLineRef.current = passedRouteLine;
+      setTimeout(() => {
+        map.invalidateSize();
+        map.fitBounds(fullRouteLine.getBounds().pad(0.25));
+      }, 300);
+      let currentIndex = 0;
+      const totalPoints = routeCoordinates.length;
+      const intervalMs = Math.max(150, Math.floor(18000 / totalPoints));
+      animationInterval = setInterval(() => {
+        currentIndex++;
+        if (currentIndex >= totalPoints) {
+          clearInterval(animationInterval);
+          courierMarker.setLatLng(routeCoordinates[totalPoints - 1]);
+          courierMarker.setIcon(createCourierIcon("Yetib keldi! 🔔"));
+          passedRouteLine.setLatLngs(routeCoordinates);
+          setDeliveryStatus('arrived');
+          setProgressPercent(100);
+          setRemainingKm('0.0');
+          setEtaMinutes(0);
+          return;
+        }
+        const currentPos = routeCoordinates[currentIndex];
+        courierMarker.setLatLng(currentPos);
+        passedRouteLine.setLatLngs(routeCoordinates.slice(0, currentIndex + 1));
+        const pct = Math.round(currentIndex / (totalPoints - 1) * 100);
+        setProgressPercent(pct);
+        const remDist = ((1 - currentIndex / totalPoints) * parseFloat(initialDistKm)).toFixed(1);
+        setRemainingKm(remDist);
+        setEtaMinutes(Math.max(1, Math.round((1 - currentIndex / totalPoints) * initialEta)));
+        courierMarker.setIcon(createCourierIcon("Kuryer yo'lda (" + pct + "%)"));
+      }, intervalMs);
+    };
+    const osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' + shopLng + ',' + shopLat + ';' + userLng + ',' + userLat + '?overview=full&geometries=geojson';
+    fetch(osrmUrl).then(res => res.json()).then(data => {
+      if (data.routes && data.routes[0] && data.routes[0].geometry) {
+        const coordsArr = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+        startAnimation(coordsArr);
+      } else {
+        startAnimation(null);
+      }
+    }).catch(() => {
+      startAnimation(null);
+    });
+    return () => {
+      if (animationInterval) clearInterval(animationInterval);
+    };
+  }, [type, coords]);
+  const receiptDate = new Date().toLocaleString();
+  const googleMapsDirectionsUrl = 'https://www.google.com/maps/dir/?api=1&origin=' + shopLat + ',' + shopLng + '&destination=' + userLat + ',' + userLng + '&travelmode=driving';
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-4xl mx-auto py-8 animate-fade-in"
+  }, type === 'delivery' && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-100 pb-6 mb-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-14 h-14 bg-emerald-100 text-brand rounded-2xl flex items-center justify-center shrink-0"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": deliveryStatus === 'arrived' ? "check-circle" : "truck",
+    className: "w-8 h-8"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs uppercase tracking-wider font-bold text-brand bg-emerald-50 px-2.5 py-1 rounded-full"
+  }, deliveryStatus === 'arrived' ? "Manzilga yetib kelindi" : "Kuryer yo'lda"), /*#__PURE__*/React.createElement("h1", {
+    className: "text-2xl font-bold text-gray-900 mt-1"
+  }, deliveryStatus === 'arrived' ? "Buyurtmangiz yetib keldi!" : "Kuryer manzilingiz tomon harakatlanmoqda"), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-gray-500"
+  }, "Buyurtma raqami: ", /*#__PURE__*/React.createElement("span", {
+    className: "font-bold text-gray-900"
+  }, "#DO-", orderId)))), /*#__PURE__*/React.createElement("div", {
+    className: "text-right sm:text-right text-center w-full sm:w-auto"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 font-medium"
+  }, "Yetkazib berish vaqti:"), /*#__PURE__*/React.createElement("p", {
+    className: "text-2xl font-black text-gray-900"
+  }, deliveryStatus === 'arrived' ? "0 daqiqa" : "~" + etaMinutes + " daqiqa"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 font-medium"
+  }, "Qolgan masofa: ", /*#__PURE__*/React.createElement("b", null, remainingKm, " km")), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-600 font-semibold mt-1"
+  }, "Yetkazish: ", /*#__PURE__*/React.createElement("b", null, effectiveDeliveryFee.toLocaleString(), " UZS"), " (1 km = 4,000 so'm)"))), /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between text-xs font-semibold text-gray-600"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1 text-brand"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "store",
+    className: "w-3.5 h-3.5"
+  }), " Donerci Xovos"), /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1 text-amber-600 font-bold"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "bike",
+    className: "w-3.5 h-3.5"
+  }), " Kuryer: ", progressPercent, "%"), /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1 text-gray-900"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "map-pin",
+    className: "w-3.5 h-3.5"
+  }), " Sizning manzilingiz")), /*#__PURE__*/React.createElement("div", {
+    className: "w-full bg-gray-100 h-2.5 rounded-full overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-brand h-full transition-all duration-500 rounded-full",
+    style: {
+      width: progressPercent + '%'
+    }
+  })))), type === 'delivery' && /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 text-sm font-semibold text-gray-800"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "navigation",
+    className: "w-4 h-4 text-brand"
+  }), /*#__PURE__*/React.createElement("span", null, "Yetkazib berish marshruti va kuryer joylashuvi")), /*#__PURE__*/React.createElement("a", {
+    href: googleMapsDirectionsUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "external-link",
+    className: "w-3.5 h-3.5"
+  }), /*#__PURE__*/React.createElement("span", null, "Google Maps Navigatsiyasini ochish"))), /*#__PURE__*/React.createElement("div", {
+    id: "map",
+    className: "w-full h-[450px] z-10 relative bg-gray-100"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 flex flex-wrap items-center justify-between gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-3 h-3 rounded-full bg-brand inline-block"
+  }), " ", /*#__PURE__*/React.createElement("b", null, "Yashil:"), " Donerci Xovos"), /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-3 h-3 rounded-full bg-amber-500 inline-block"
+  }), " ", /*#__PURE__*/React.createElement("b", null, "Sariq:"), " Kuryer harakati"), /*#__PURE__*/React.createElement("span", {
+    className: "flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-3 h-3 rounded-full bg-gray-900 inline-block"
+  }), " ", /*#__PURE__*/React.createElement("b", null, "Qora:"), " Sizning uyingiz")), /*#__PURE__*/React.createElement("span", {
+    className: "italic text-gray-500"
+  }, "Kuryer va mijoz harakatni jonli ko'rib turadi"))), /*#__PURE__*/React.createElement("div", {
+    className: "receipt-print bg-white mx-auto border border-dashed border-gray-300 p-8 max-w-[320px] mb-10 rounded-sm shadow-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-center border-b border-gray-300 pb-4 mb-4 border-dashed"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "font-bold text-2xl mb-1"
+  }, "DONERCI XOVOS"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500 mt-1"
+  }, "Sirdaryo vil, Xovos tumani"), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-gray-500"
+  }, "Tel: +998 71 200 00 00")), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm mb-4 space-y-1"
+  }, /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, t.orderNum, ":"), " ", /*#__PURE__*/React.createElement("b", null, "#DO-", orderId)), /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Sana:"), " ", /*#__PURE__*/React.createElement("b", null, receiptDate)), /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Mijoz:"), " ", /*#__PURE__*/React.createElement("b", null, user ? user.name : 'Mehmon')), /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "Tur:"), " ", /*#__PURE__*/React.createElement("b", null, type === 'takeaway' ? t.takeaway : t.delivery)), /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
+    className: "text-gray-500"
+  }, "To'lov:"), " ", /*#__PURE__*/React.createElement("b", null, payMethod === 'online' ? t.payOnline : t.payOnDelivery))), /*#__PURE__*/React.createElement("div", {
+    className: "border-b border-gray-300 pb-4 mb-4 border-dashed"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full text-sm"
+  }, /*#__PURE__*/React.createElement("tbody", null, cart.map(c => /*#__PURE__*/React.createElement("tr", {
+    key: c.id
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1 text-gray-700"
+  }, c.qty, "x ", c.name[lang]), /*#__PURE__*/React.createElement("td", {
+    className: "text-right py-1 font-medium text-gray-900"
+  }, (c.price * c.qty).toLocaleString()))), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "py-1 pt-3 text-gray-700"
+  }, t.package), /*#__PURE__*/React.createElement("td", {
+    className: "text-right py-1 pt-3 font-medium text-gray-900"
+  }, "1,000")), type === 'delivery' && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    className: "py-1 text-gray-700"
+  }, "Yetkazish (", effectiveDistKm, " km)"), /*#__PURE__*/React.createElement("td", {
+    className: "text-right py-1 font-medium text-gray-900"
+  }, effectiveDeliveryFee.toLocaleString()))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between font-bold text-lg mb-6 text-gray-900"
+  }, /*#__PURE__*/React.createElement("span", null, t.total, ":"), /*#__PURE__*/React.createElement("span", null, finalTotal.toLocaleString(), " UZS")), /*#__PURE__*/React.createElement("div", {
+    className: "text-center text-xs text-gray-500 space-y-1"
+  }, /*#__PURE__*/React.createElement("p", null, "Xarid uchun tashakkur!"), /*#__PURE__*/React.createElement("p", null, "Yana kelib turing!"))), /*#__PURE__*/React.createElement("div", {
+    className: "text-center pb-12 flex flex-col sm:flex-row items-center justify-center gap-4"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.print(),
+    className: "bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer shadow-sm w-full sm:w-auto justify-center"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "printer",
+    className: "w-4 h-4"
+  }), " ", t.printReceipt), /*#__PURE__*/React.createElement("button", {
+    onClick: onHome,
+    className: "text-brand font-semibold text-sm hover:text-brandDark transition flex items-center gap-2 bg-emerald-50 border border-brand/20 px-6 py-3 rounded-xl cursor-pointer w-full sm:w-auto justify-center"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "home",
+    className: "w-4 h-4"
+  }), " ", t.home)));
+};
+window.OrderTracking = OrderTracking;
+
+// Donerci Xovos - Asosiy Ilova Kontrolleri (App Component)
+const {
+  useState,
+  useEffect
+} = React;
+const App = () => {
+  const [lang, setLang] = useState('uz');
+  const t = window.dict[lang] || window.dict['uz'];
+
+  // Faol foydalanuvchi sessiyasi
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('donerci_active_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [page, setPage] = useState('home');
+  const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [orderType, setOrderType] = useState('delivery');
+  const [deliveryCoords, setDeliveryCoords] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('on_delivery');
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [orderId, setOrderId] = useState(null);
+  const [orderFinalTotal, setOrderFinalTotal] = useState(0);
+  const [orderDeliveryFee, setOrderDeliveryFee] = useState(0);
+  const [orderDistInfo, setOrderDistInfo] = useState(null);
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('donerci_active_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('donerci_active_user');
+    }
+  }, [user]);
+  useEffect(() => {
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  }, [page, isCartOpen, user, lang, showInfoModal, showAuthModal]);
+  const addToCart = item => {
+    setCart(prev => {
+      const exist = prev.find(i => i.id === item.id);
+      if (exist) {
+        return prev.map(i => i.id === item.id ? {
+          ...i,
+          qty: i.qty + 1
+        } : i);
+      }
+      return [...prev, {
+        ...item,
+        qty: 1
+      }];
+    });
+    setIsCartOpen(true);
+  };
+  const updateQty = (id, delta) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = item.qty + delta;
+        return newQty > 0 ? {
+          ...item,
+          qty: newQty
+        } : null;
+      }
+      return item;
+    }).filter(Boolean));
+  };
+  const cartTotal = cart.reduce((acc, item) => acc + item.price * item.qty, 0);
+  const PACKAGE_FEE = window.CONFIG && window.CONFIG.PACKAGE_FEE || 1000;
+  const finalTotal = cart.length > 0 ? cartTotal + PACKAGE_FEE : 0;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen bg-gray-100 flex flex-col font-sans"
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-[1400px] mx-auto px-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between h-20"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-8"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "cursor-pointer text-gray-900 font-extrabold text-2xl tracking-tight leading-none",
+    onClick: () => setPage('home')
+  }, "Donerci", /*#__PURE__*/React.createElement("span", {
+    className: "text-brand font-semibold text-lg ml-1"
+  }, "Xovos")), /*#__PURE__*/React.createElement("nav", {
+    className: "hidden lg:flex items-center gap-6 text-sm font-medium text-gray-500"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#cat-aksiyalar",
+    className: "hover:text-gray-900 transition"
+  }, t.menu), /*#__PURE__*/React.createElement("a", {
+    href: "#cat-aksiyalar",
+    className: "hover:text-gray-900 transition"
+  }, t.promos), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    onClick: e => {
+      e.preventDefault();
+      setShowInfoModal(true);
+    },
+    className: "hover:text-gray-900 transition"
+  }, t.about), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    onClick: e => {
+      e.preventDefault();
+      setShowInfoModal(true);
+    },
+    className: "hover:text-gray-900 transition"
+  }, t.contacts))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-4 sm:gap-6"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "hidden md:flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 bg-brandYellowLight text-brandYellowDark rounded-lg flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "map-pin",
+    className: "w-4 h-4"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-500"
+  }, t.delivery, " / ", t.takeaway), /*#__PURE__*/React.createElement("p", {
+    className: "font-semibold text-gray-900"
+  }, t.delivery))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: lang,
+    onChange: e => setLang(e.target.value),
+    className: "bg-gray-50 border border-gray-200 text-gray-700 font-medium px-3 py-2 rounded-lg outline-none cursor-pointer transition focus:border-brand text-sm"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "uz"
+  }, "UZ"), /*#__PURE__*/React.createElement("option", {
+    value: "ru"
+  }, "RU"), /*#__PURE__*/React.createElement("option", {
+    value: "en"
+  }, "EN"), /*#__PURE__*/React.createElement("option", {
+    value: "zh"
+  }, "ZH"))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowInfoModal(true),
+    className: "bg-brandYellowLight text-brandYellowDark border border-brandYellow/30 px-4 py-2 rounded-lg font-medium hover:bg-brandYellow/20 transition text-sm hidden md:block cursor-pointer"
+  }, t.admin), user ? /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 bg-brand text-white rounded-full flex items-center justify-center font-bold text-xs"
+  }, (user.name || 'M').charAt(0).toUpperCase()), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium text-gray-700 hidden sm:block"
+  }, user.name), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setUser(null);
+      localStorage.removeItem('donerci_active_user');
+    },
+    title: t.logout,
+    className: "text-gray-400 hover:text-red-500 transition ml-2 cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "log-out",
+    className: "w-4 h-4"
+  }))) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowAuthModal(true),
+    className: "bg-brand text-white px-3.5 py-2 rounded-lg text-sm font-semibold hover:bg-brandDark transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "user",
+    className: "w-4 h-4"
+  }), /*#__PURE__*/React.createElement("span", null, "Kirish")))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-4 pb-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 relative"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "search",
+    className: "w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2"
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: t.search,
+    value: searchQuery,
+    onChange: e => setSearchQuery(e.target.value),
+    className: "w-full bg-gray-50 border border-gray-200 rounded-lg py-3 pl-12 pr-4 outline-none focus:border-brand focus:bg-white transition-all text-sm font-medium text-gray-800"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIsCartOpen(true),
+    className: "bg-brand text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-brandDark transition shadow-sm w-auto justify-center shrink-0 cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "shopping-cart",
+    className: "w-5 h-5"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold text-sm"
+  }, t.cart, " (", cart.length, ")"))))), /*#__PURE__*/React.createElement("main", {
+    className: "max-w-[1400px] mx-auto mt-8 px-4 flex-1"
+  }, page === 'home' && /*#__PURE__*/React.createElement(window.Home, {
+    menu: window.menuData,
+    addToCart: addToCart,
+    searchQuery: searchQuery,
+    t: t,
+    lang: lang
+  }), page === 'checkout' && /*#__PURE__*/React.createElement(window.Checkout, {
+    cart: cart,
+    finalTotal: finalTotal,
+    t: t,
+    user: user,
+    onSuccess: (selectedType, coords, payMeth, id, distInfo, computedTotal, deliveryFee) => {
+      setOrderType(selectedType);
+      setDeliveryCoords(coords);
+      setPaymentMethod(payMeth);
+      setOrderId(id);
+      setOrderDistInfo(distInfo);
+      setOrderFinalTotal(computedTotal);
+      setOrderDeliveryFee(deliveryFee);
+      setPage('tracking');
+    },
+    onBack: () => setPage('home')
+  }), page === 'tracking' && /*#__PURE__*/React.createElement(window.OrderTracking, {
+    onHome: () => {
+      setPage('home');
+      setCart([]);
+      setDeliveryCoords(null);
+      setOrderFinalTotal(0);
+      setOrderDeliveryFee(0);
+      setOrderDistInfo(null);
+    },
+    t: t,
+    type: orderType,
+    cart: cart,
+    finalTotal: orderFinalTotal || finalTotal,
+    deliveryFee: orderDeliveryFee,
+    distanceInfo: orderDistInfo,
+    user: user,
+    lang: lang,
+    coords: deliveryCoords,
+    payMethod: paymentMethod,
+    orderId: orderId
+  })), isCartOpen && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[60] flex justify-end"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity",
+    onClick: () => setIsCartOpen(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "relative bg-white w-full max-w-md h-full flex flex-col shadow-2xl animate-slide-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-5 flex justify-between items-center border-b border-gray-200"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-bold text-gray-900"
+  }, t.cart), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setIsCartOpen(false),
+    className: "p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-full transition cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "x",
+    className: "w-5 h-5"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-gray-50"
+  }, cart.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-col items-center justify-center h-full text-gray-400"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4 border border-gray-200"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "shopping-bag",
+    className: "w-8 h-8 text-gray-300"
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "text-base font-medium text-gray-500"
+  }, t.emptyCart)) : cart.map(item => /*#__PURE__*/React.createElement("div", {
+    key: item.id,
+    className: "flex gap-4 bg-white p-3 rounded-xl border border-gray-200 shadow-sm"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: item.img,
+    className: "w-20 h-20 object-cover rounded-lg border border-gray-100",
+    alt: item.name[lang]
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex flex-col justify-between py-1"
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "font-semibold text-gray-800 text-sm leading-tight"
+  }, item.name[lang]), /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-900 font-bold mt-1 text-sm"
+  }, item.price.toLocaleString(), " so'm"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-2 bg-gray-50 w-fit rounded-md px-1 py-1 border border-gray-200"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => updateQty(item.id, -1),
+    className: "w-6 h-6 flex items-center justify-center font-semibold text-gray-600 hover:bg-white rounded transition cursor-pointer"
+  }, "-"), /*#__PURE__*/React.createElement("span", {
+    className: "font-semibold w-4 text-center text-gray-800 text-xs"
+  }, item.qty), /*#__PURE__*/React.createElement("button", {
+    onClick: () => updateQty(item.id, 1),
+    className: "w-6 h-6 flex items-center justify-center font-semibold text-gray-600 hover:bg-white rounded transition cursor-pointer"
+  }, "+")))))), cart.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "p-6 border-t border-gray-200 bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-2 text-gray-500 text-sm"
+  }, /*#__PURE__*/React.createElement("span", null, t.products), /*#__PURE__*/React.createElement("span", null, cartTotal.toLocaleString(), " so'm")), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-2 text-gray-500 text-sm"
+  }, /*#__PURE__*/React.createElement("span", null, t.package), /*#__PURE__*/React.createElement("span", null, PACKAGE_FEE.toLocaleString(), " so'm")), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-4 text-emerald-600 text-xs border-b border-gray-100 pb-4 font-medium"
+  }, /*#__PURE__*/React.createElement("span", null, "Yetkazib berish to'lovi:"), /*#__PURE__*/React.createElement("span", null, "1 km = 4,000 so'm")), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-between mb-6 text-xl font-bold text-gray-900"
+  }, /*#__PURE__*/React.createElement("span", null, t.total), /*#__PURE__*/React.createElement("span", null, finalTotal.toLocaleString(), " so'm")), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setIsCartOpen(false);
+      setPage('checkout');
+    },
+    className: "w-full bg-brand text-white py-3.5 rounded-lg font-semibold text-lg hover:bg-brandDark transition shadow-sm cursor-pointer"
+  }, t.checkout)))), showInfoModal && /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[100] flex justify-center items-center p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "absolute inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity",
+    onClick: () => setShowInfoModal(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "relative bg-white w-full max-w-sm rounded-xl p-6 shadow-xl animate-fade-in"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowInfoModal(false),
+    className: "absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full transition cursor-pointer"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "x",
+    className: "w-5 h-5"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "mt-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-12 h-12 bg-brandYellowLight text-brandYellowDark rounded-lg flex items-center justify-center mb-4 border border-brandYellow/30"
+  }, /*#__PURE__*/React.createElement("i", {
+    "data-lucide": "map-pin",
+    className: "w-6 h-6"
+  })), /*#__PURE__*/React.createElement("h2", {
+    className: "text-xl font-bold text-gray-900 mb-6"
+  }, t.admin), /*#__PURE__*/React.createElement("div", {
+    className: "bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-500 text-xs uppercase tracking-wider font-semibold mb-1"
+  }, t.phoneLbl), /*#__PURE__*/React.createElement("p", {
+    className: "text-base font-bold text-gray-900 mb-4"
+  }, window.CONFIG && window.CONFIG.SHOP_LOCATION && window.CONFIG.SHOP_LOCATION.phone || '+998 71 200 00 00'), /*#__PURE__*/React.createElement("p", {
+    className: "text-gray-500 text-xs uppercase tracking-wider font-semibold mb-1"
+  }, t.addressLbl), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm font-medium text-gray-800"
+  }, window.CONFIG && window.CONFIG.SHOP_LOCATION && window.CONFIG.SHOP_LOCATION.address || 'Sirdaryo vil, Xovos tumani')), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowInfoModal(false),
+    className: "w-full bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition text-sm cursor-pointer"
+  }, "Yopish")))), showAuthModal && /*#__PURE__*/React.createElement(window.AuthModal, {
+    onLogin: u => {
+      setUser(u);
+      setShowAuthModal(false);
+    },
+    onClose: () => setShowAuthModal(false),
+    t: t,
+    lang: lang,
+    setLang: setLang
+  }));
+};
+
+// Ilovani sahifaga render qilish
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(/*#__PURE__*/React.createElement(App, null));
+  </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "donerci-xovos",
+  "version": "1.0.0",
+  "description": "Donerci Xovos - Tezkor yetkazib berish va onlayn buyurtma platformasi",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve ."
+  },
+  "keywords": [
+    "donerci",
+    "xovos",
+    "delivery",
+    "fast-food",
+    "telegram-bot"
+  ],
+  "author": "Donerci Xovos",
+  "license": "MIT"
+}
